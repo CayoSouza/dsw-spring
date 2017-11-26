@@ -3,6 +3,7 @@ package br.unirio.dsw.selecaoppgi.controller;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.http.HttpServletResponse;
@@ -24,7 +25,9 @@ import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.pdf.PdfWriter;
 
 import br.unirio.dsw.selecaoppgi.model.edital.Edital;
+import br.unirio.dsw.selecaoppgi.model.edital.ProjetoPesquisa;
 import br.unirio.dsw.selecaoppgi.model.edital.ProvaEscrita;
+import br.unirio.dsw.selecaoppgi.model.inscricao.AvaliacaoProvaEscrita;
 import br.unirio.dsw.selecaoppgi.model.inscricao.InscricaoEdital;
 import br.unirio.dsw.selecaoppgi.service.dao.EditalDAO;
 import br.unirio.dsw.selecaoppgi.service.dao.InscricaoDAO;
@@ -64,6 +67,23 @@ public class RelatorioController {
 		
 		List<ProvaEscrita> provasEscritas = (List<ProvaEscrita>) edital.getProvasEscritas();
 		
+//		List<InscricaoEdital> inscritos = new ArrayList<>();
+//		InscricaoEdital inscricao1 = new InscricaoEdital(edital);
+//		inscricao1.setNomeCandidato("fulano1");
+//		
+//		
+//		AvaliacaoProvaEscrita ape1 = new AvaliacaoProvaEscrita(provasEscritas.get(0));
+//		
+//		ProjetoPesquisa pp = new ProjetoPesquisa();
+//		
+//		ProvaEscrita prova = new ProvaEscrita();
+//		prova.setCodigo("FSI");
+//		pp.adicionaProvaEscrita(prova);
+//		
+//		inscricao1.adicionaInscricaoProjetoPesquisa(pp, "teste123");
+//		
+//		inscritos.add(inscricao1);
+		
 		List<InscricaoEdital> inscritos = inscricaoDAO.carregaInscricoesEditalAcessoPublico(edital);
 
 		Document document = new Document();
@@ -75,23 +95,31 @@ public class RelatorioController {
 		document.addTitle("Lista de presença em prova escrita");
 		Font chapterFont = FontFactory.getFont(FontFactory.HELVETICA, 16, Font.BOLD);
 		Font paragraphFont = FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL);
-		Chunk chunk = new Chunk("Edital: "+edital.getNome(), chapterFont);
-		Chapter chapter = new Chapter(new Paragraph(chunk), 1);
-		chapter.setNumberDepth(0);
+		Chunk chunk = new Chunk("Lista de presença em prova escrita \n" + edital.getNome(), chapterFont);
+//		Chapter chapter = new Chapter(new Paragraph(chunk), 1);
+//		chapter.setNumberDepth(0);
+//		document.add(chapter);
 		
-		provasEscritas.forEach(provaEscrita -> {
-			chapter.add(new Paragraph(provaEscrita.getNome(), paragraphFont));
+//		provasEscritas.forEach(provaEscrita -> {
+		int i=0;
+		for(ProvaEscrita provaEscrita : provasEscritas) {
+			Chapter chap = new Chapter(new Paragraph(chunk), ++i);
+
+			chap.add(new Paragraph(provaEscrita.getNome(), paragraphFont));
 			inscritos.forEach(inscrito -> {
 				inscrito.getAvaliacoesProvasEscritas().forEach(provaDoInscrito -> {
 					if(provaEscrita.getCodigo().equals(provaDoInscrito.getProvaEscrita().getCodigo()))
-						chapter.add(new Paragraph(inscrito.getNomeCandidato() + " __________________________________________________"));
+						chap.add(new Paragraph(inscrito.getNomeCandidato() + " __________________________________________________"));
 				});
 			});
 			
-			
-			document.newPage();
-		});
-		document.add(chapter);
+			try {
+				document.add(chap);
+				document.newPage();
+			} catch (DocumentException e) {
+				e.printStackTrace();
+			}
+		};
 
 		document.close();
 
