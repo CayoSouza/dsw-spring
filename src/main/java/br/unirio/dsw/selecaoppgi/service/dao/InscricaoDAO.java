@@ -1,12 +1,25 @@
 package br.unirio.dsw.selecaoppgi.service.dao;
 
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
+
+import br.unirio.dsw.selecaoppgi.model.edital.Edital;
+import br.unirio.dsw.selecaoppgi.model.edital.ProvaEscrita;
 import br.unirio.dsw.selecaoppgi.model.inscricao.AvaliacaoProvaEscrita;
 import br.unirio.dsw.selecaoppgi.model.inscricao.InscricaoEdital;
 import br.unirio.dsw.selecaoppgi.model.inscricao.InscricaoProjetoPesquisa;
+import br.unirio.dsw.selecaoppgi.service.json.JsonInscricaoProjetoPesquisaReader;
+import br.unirio.dsw.selecaoppgi.service.json.JsonQuestoesReader;
 
 /**
  * Classe responsavel pela persistencia de inscrições em edital de seleção
@@ -196,10 +209,129 @@ public class InscricaoDAO extends AbstractDAO
 	/**
 	 * Carrega a lista de inscrições de um determinado edital que podem fazer uma prova
 	 */
-	public List<InscricaoEdital> carregaPresencaProvaEscrita(int idEdital, String codigoProva)
+//	public List<InscricaoEdital> carregaPresencaProvaEscrita(Edital edital, String codigoProva)
+//	{
+//		// TODO Grupo 1: implementar este método em função do caso de uso #9
+//
+//		String SQL = "SELECT ipe.* " + "FROM InscricaoProvaEscrita ipe "
+//				+ "INNER JOIN Inscricao i ON ipe.idInscricao = i.id " + "WHERE codigoProvaEscrita = ? "
+//				+ "AND idEdital = ?";
+//
+//		Connection c = getConnection();
+//
+//		if (c == null)
+//			return null;
+//
+//		ProvaEscrita prova = edital.pegaProvaEscritaCodigo(codigoProva);
+//
+//		if (prova == null)
+//			return null;
+//
+//		List<InscricaoEdital> lista = carregaInscricoesEdital(c, edital);
+//		eliminaInscricoesSemProvaEscrita(lista, edital, codigoProva);
+//
+//		try
+//		{
+//			PreparedStatement ps = c.prepareStatement(SQL);
+//			ps.setString(1, codigoProva);
+//			ps.setInt(2, edital.getId());
+//
+//			ResultSet rs = ps.executeQuery();
+//
+//			while (rs.next())
+//			{
+//				int idInscricao = rs.getInt("idInscricao");
+//				boolean presente = rs.getInt("presente") != 0;
+//				String jsonQuestoesInicialString = rs.getString("jsonQuestoesInicial");
+//				String jsonQuestoesRecursoString = rs.getString("jsonQuestoesRecurso");
+//
+//				InscricaoEdital inscricao = pegaInscricaoId(lista, idInscricao);
+//
+//				if (inscricao != null)
+//				{
+//					AvaliacaoProvaEscrita inscricaoProva = inscricao.pegaAvaliacaoProvaEscrita(prova);
+//					inscricaoProva.setPresente(presente);
+//
+//					JsonQuestoesReader readerJsonQuestoes = new JsonQuestoesReader();
+//
+//					if (jsonQuestoesInicialString.length() > 0)
+//					{
+//						JsonArray jsonQuestoesInicialArray = (JsonArray) new JsonParser().parse(jsonQuestoesInicialString);
+//						readerJsonQuestoes.carregaNotasIniciais(jsonQuestoesInicialArray, inscricaoProva);
+//					}
+//					
+//					if (jsonQuestoesRecursoString.length() > 0)
+//					{
+//						JsonArray jsonQuestoesRecursoArray = (JsonArray) new JsonParser().parse(jsonQuestoesRecursoString);
+//						readerJsonQuestoes.carregaNotasRecurso(jsonQuestoesRecursoArray, inscricaoProva);
+//					}
+//				}
+//			}
+//
+//			c.close();
+//
+//		} catch (SQLException e)
+//		{
+//			log("InscricaoDAO.carregaPresencaProvaEscrita: " + e.getMessage());
+//		}
+//
+//		return lista;
+//	}
+	
+
+	
+	/**
+	 * Carrega todas as inscrições em um edital
+	 */
+	public List<InscricaoEdital> carregaInscricoesEditalAcessoPublico(Edital edital)
 	{
-		// TODO Grupo 1: implementar este método em função do caso de uso #9
-		return null;
+		String SQL = "SELECT usuario.id as id, usuario.nome AS nome, inscricao.* " + "FROM Inscricao "
+				+ "INNER JOIN usuario ON usuario.id = inscricao.idCandidato " + "AND homologado = 1 "
+				+ "AND idEdital = ?";
+
+		Connection c = getConnection();
+		List<InscricaoEdital> lista = new ArrayList<InscricaoEdital>();
+
+		try
+		{
+			PreparedStatement ps = c.prepareStatement(SQL);
+			ps.setInt(1, edital.getId());
+
+			ResultSet rs = ps.executeQuery();
+
+			while (rs.next())
+			{
+				InscricaoEdital item = new InscricaoEdital(edital);
+				item.setId(rs.getInt("inscricao.id"));
+				item.setIdCandidato(rs.getInt("id"));
+				item.setNomeCandidato(rs.getString("Nome"));
+				item.setCotaNegros(rs.getInt("inscricao.cotaNegros") != 0);
+				item.setCotaDeficientes(rs.getInt("inscricao.cotaDeficientes") != 0);
+				item.setHomologadoOriginal(rs.getInt("inscricao.homologadoInicial") != 0);
+				item.setJustificativaHomologacaoOriginal(rs.getString("inscricao.justificativaHomologacaoInicial"));
+				item.setHomologadoRecurso(rs.getInt("inscricao.homologadoRecurso") != 0);
+				item.setJustificativaHomologacaoRecurso(rs.getString("inscricao.justificativaHomologacaoRecurso"));
+				item.setHomologado(rs.getInt("homologado") != 0);
+				item.setDispensadoProvaOriginal(rs.getInt("dispensadoProvaInicial") != 0);
+				item.setJustificativaDispensaOriginal(rs.getString("justificativaDispensaInicial"));
+				item.setDispensadoProvaRecurso(rs.getInt("dispensadoProvaRecurso") != 0);
+				item.setJustificativaDispensaRecurso(rs.getString("justificativaDispensaRecurso"));
+
+				String jsonProjetosString = rs.getString("inscricao.jsonProjetos");
+				JsonArray jsonProjetos = (JsonArray) new JsonParser().parse(jsonProjetosString);
+
+				JsonInscricaoProjetoPesquisaReader reader = new JsonInscricaoProjetoPesquisaReader();
+				reader.execute(jsonProjetos, edital, item);
+
+				lista.add(item);
+			}
+
+		} catch (SQLException e)
+		{
+			log("InscricaoDAO.carregaInscricoesEdital: " + e.getMessage());
+		}
+
+		return lista;
 	}
 
 	/**
@@ -217,13 +349,43 @@ public class InscricaoDAO extends AbstractDAO
 	/**
 	 * Indica que um candidato faltou a uma prova
 	 */
-	public boolean indicaAusenciaProvaEscrita(int idInscricao, String codigoProva)
-	{
-		// Muda o campo presente para FALSE no registro da prova escrita associada à inscrição
-		// Somente se o campo homologadoInicial estiver TRUE ou o campo homologadoRecurso estiver TRUE
-		// Somente se o campo dispensadoProvaInicial estiver FALSE ou dispensadoProvaRecurso estiver FALSE
+	public boolean indicaAusenciaProvaEscrita(int idInscricao, String codigoProva) {
+		// Muda o campo presente para FALSE no registro da prova escrita associada à
+		// inscrição
+		// Somente se o campo homologadoInicial estiver TRUE ou o campo
+		// homologadoRecurso estiver TRUE
+		// Somente se o campo dispensadoProvaInicial estiver FALSE ou
+		// dispensadoProvaRecurso estiver FALSE
 		// TODO Grupo 1: implementar este método em função do caso de uso #9
-		return false;
+		String SQLConsulta = "SELECT homologadoInicial, homologadoRecurso, dispensadoProvaInicial, dispensadoProvaRecurso"
+				+ " FROM inscricao WHERE id = ?";
+
+		Connection c = getConnection();
+
+		if (c == null)
+			return false;
+
+		try {
+			PreparedStatement ps = c.prepareStatement(SQLConsulta);
+			ps.setInt(1, idInscricao);
+			ResultSet rs = ps.executeQuery();
+			if (!rs.next())
+				throw new SQLException("erro ao ler o tipo do curso: ");
+			if (rs.getInt("homologadoInicial") == 1 || rs.getInt("homologadoRecurso") == 1
+					|| rs.getInt("dispensadoProvaInicial") == 0 || rs.getInt("dispensadoProvaRecurso") == 0) {
+				CallableStatement cs = c.prepareCall("{call AtualizaPresencaProvaEscrita(?, ?, ?)}");
+				cs.setInt(1, idInscricao);
+				cs.setString(2, codigoProva);
+				cs.setInt(3, 0);
+				cs.execute();
+				c.close();
+			}
+			return true;
+
+		} catch (SQLException e) {
+			log("InscricaoDAO.indicaAusenciaProvaEscrita: " + e.getMessage());
+			return false;
+		}
 	}
 	
 	/**
