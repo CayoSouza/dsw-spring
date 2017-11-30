@@ -58,32 +58,19 @@ public class RelatorioController {
 	@Autowired
 	private EditalDAO editalDAO;
 
+	/**
+	 * Gera o relatório de prova escrita contendo todos os alunos elegíveis a fazê-la 
+	 * @param id Edital
+	 * @param response
+	 * @throws DocumentException
+	 * @throws IOException
+	 */
 	@Secured("ROLE_ADMIN")
 	@RequestMapping(value = "/edital/{id}/relatorio/escritas/presenca", method = RequestMethod.GET)
 	public void presencaProvaEscrita(@PathVariable int id, HttpServletResponse response)
 			throws DocumentException, IOException {
-
 		Edital edital = editalDAO.carregaEditalId(id, userDAO);
-		
 		List<ProvaEscrita> provasEscritas = (List<ProvaEscrita>) edital.getProvasEscritas();
-		
-//		List<InscricaoEdital> inscritos = new ArrayList<>();
-//		InscricaoEdital inscricao1 = new InscricaoEdital(edital);
-//		inscricao1.setNomeCandidato("fulano1");
-//		
-//		
-//		AvaliacaoProvaEscrita ape1 = new AvaliacaoProvaEscrita(provasEscritas.get(0));
-//		
-//		ProjetoPesquisa pp = new ProjetoPesquisa();
-//		
-//		ProvaEscrita prova = new ProvaEscrita();
-//		prova.setCodigo("FSI");
-//		pp.adicionaProvaEscrita(prova);
-//		
-//		inscricao1.adicionaInscricaoProjetoPesquisa(pp, "teste123");
-//		
-//		inscritos.add(inscricao1);
-		
 		List<InscricaoEdital> inscritos = inscricaoDAO.carregaInscricoesEditalAcessoPublico(edital);
 
 		Document document = new Document();
@@ -91,35 +78,41 @@ public class RelatorioController {
 		PdfWriter.getInstance(document, baos);
 
 		document.open();
+		document.addTitle("Lista-de-presença-em-prova-escrita");
 		
-		document.addTitle("Lista de presença em prova escrita");
 		Font chapterFont = FontFactory.getFont(FontFactory.HELVETICA, 16, Font.BOLD);
-		Font paragraphFont = FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL);
-		Chunk chunk = new Chunk("Lista de presença em prova escrita \n" + edital.getNome(), chapterFont);
-//		Chapter chapter = new Chapter(new Paragraph(chunk), 1);
-//		chapter.setNumberDepth(0);
-//		document.add(chapter);
+		Font paragraphFont = FontFactory.getFont(FontFactory.HELVETICA, 14, Font.BOLD);
 		
-//		provasEscritas.forEach(provaEscrita -> {
-		int i=0;
-		for(ProvaEscrita provaEscrita : provasEscritas) {
-			Chapter chap = new Chapter(new Paragraph(chunk), ++i);
+		final String QUEBRA_DE_LINHA = "\n";
+		final String QUEBRA_DE_LINHA_DUPLA = "\n\n";
+		final String ESPACO_PARA_ASSINATURA = " _________________________";
+		
+		Chunk chunk = new Chunk("Lista de presença em prova escrita - " + edital.getNome() + QUEBRA_DE_LINHA_DUPLA, chapterFont);
 
-			chap.add(new Paragraph(provaEscrita.getNome(), paragraphFont));
+		int indice = 1;
+		for(ProvaEscrita provaEscrita : provasEscritas) {
+			Chapter chapter = new Chapter(new Paragraph(chunk), indice++);
+
+			chapter.add(new Paragraph(provaEscrita.getNome().toUpperCase() + QUEBRA_DE_LINHA, paragraphFont));
 			inscritos.forEach(inscrito -> {
 				inscrito.getAvaliacoesProvasEscritas().forEach(provaDoInscrito -> {
-					if(provaEscrita.getCodigo().equals(provaDoInscrito.getProvaEscrita().getCodigo()))
-						chap.add(new Paragraph(inscrito.getNomeCandidato() + " __________________________________________________"));
+					if(provaEscrita.getCodigo().equals(provaDoInscrito.getProvaEscrita().getCodigo())) {
+						chapter.add(new Paragraph(inscrito.getNomeCandidato() + ESPACO_PARA_ASSINATURA));
+					}
 				});
 			});
 			
-			try {
-				document.add(chap);
-				document.newPage();
-			} catch (DocumentException e) {
-				e.printStackTrace();
+			if(chapter.size()==1) { // só tem o nome da prova(nao tem alunos inscritos)
+				indice-=1;
+				continue;
 			}
-		};
+				try {
+					document.add(chapter);
+					document.newPage();
+				} catch (DocumentException e) {
+					e.printStackTrace();
+				}
+		}
 
 		document.close();
 
